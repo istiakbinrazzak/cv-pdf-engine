@@ -22,18 +22,16 @@ app.post('/generate-pdf', async (req, res) => {
 
     let browser;
     try {
-        // Ultra-lightweight Chrome settings for 512MB RAM limits
+        // Removed the hardcoded executablePath so Puppeteer finds the bundled browser automatically
         browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
             headless: 'new',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage', // Fixes Docker shared memory issues
+                '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--no-zygote',
-                '--single-process', // Forces Chrome to use less RAM
-                '--disable-accelerated-2d-canvas'
+                '--single-process'
             ]
         });
 
