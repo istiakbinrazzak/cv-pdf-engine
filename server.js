@@ -5,11 +5,13 @@ const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Allow Hostinger to talk to this API
 app.use(cors());
-
-// Increase payload limit for large base64 images (profile photos)
 app.use(express.json({ limit: '50mb' }));
+
+// A simple route to "wake up" the free server
+app.get('/', (req, res) => {
+    res.send('PDF Engine is awake and ready!');
+});
 
 app.post('/generate-pdf', async (req, res) => {
     const { html } = req.body;
@@ -20,17 +22,23 @@ app.post('/generate-pdf', async (req, res) => {
 
     let browser;
     try {
+        // Optimized flags for 512MB RAM free tier
         browser = await puppeteer.launch({
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-zygote',
+                '--single-process'
+            ]
         });
 
         const page = await browser.newPage();
 
-        // Inject HTML and wait for images/fonts to load
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-
-        // Ensure background colors print
+        // Changed to 'load' instead of 'networkidle0' to prevent font-loading timeouts
+        await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
         await page.emulateMediaType('screen');
 
         const pdfBuffer = await page.pdf({
@@ -47,7 +55,7 @@ app.post('/generate-pdf', async (req, res) => {
 
     } catch (error) {
         console.error('PDF Generation Error:', error);
-        res.status(500).send('Error generating PDF');
+        res.status(500).json({ error: 'Error generating PDF', details: error.message });
     } finally {
         if (browser) {
             await browser.close();
